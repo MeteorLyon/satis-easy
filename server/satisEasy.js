@@ -32,9 +32,9 @@ Meteor.startup(function serverOnStartup() {
 
         if (!Informations.find().count()) {
             var dataInfo = {
-                title: json.name,
-                homepage: json.homepage,
-                description: json.description
+                title: json.name ? json.name : Meteor.settings.public.informations.title,
+                homepage: json.homepage ? json.homepage : Meteor.settings.public.informations.homepage,
+                description: json.description ? json.description : Meteor.settings.public.informations.description
             };
 
             if (json.config
@@ -58,7 +58,8 @@ Meteor.startup(function serverOnStartup() {
             console.log('Informations section provisionned title/homepage/description/config.github-oauth datas');
         }
 
-        if (!Repositories.find().count()) {
+        if (json.repositories
+            && !Repositories.find().count()) {
             _.each(json.repositories, function initRepositoriesWithJsonContent(repo) {
                 Repositories.insert(repo);
             });
@@ -66,7 +67,8 @@ Meteor.startup(function serverOnStartup() {
             console.log('Repositories section provisionned with ' + _.size(json.repositories) + ' repo');
         }
 
-        if (!Packages.find().count()) {
+        if (json.require
+            && !Packages.find().count()) {
             var keys = _.keys(json.require);
             _.each(keys, function initPackagesWithJsonContent(key) {
                 var dataPackage = {
@@ -170,7 +172,7 @@ Meteor.methods({
                     total = Packages.find({}).count(),
                     counter = 0;
 
-                Packages.find({}, {sort: {title: 1}}).forEach(function ssrEachPAckages(item) {
+                Packages.find({}, {sort: {name: 1}}).forEach(function ssrEachPackages(item) {
                     counter++;
                     _.extend(item, {isNotLast: (counter < total)});
                     packages.insert(item);
@@ -249,7 +251,7 @@ Meteor.methods({
         try {
             var res = exec(phpCmd);
         } catch (e) {
-            console.error('exec failed', res);
+            console.error('exec failed (cmd: %s)', phpCmd);
             console.error(e);
         }
 

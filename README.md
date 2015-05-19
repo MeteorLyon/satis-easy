@@ -47,5 +47,7 @@ In the settings.json file you have some configuration to customize:
 * Manage Archive section
 * Manage Other kind of repositories than only "composer" type
 * When build failed, display message to all users (store last error only ?)
+* Fix the button ForceBuild on top using pushpin of Materialize
+* Use CVS or COMPOSER with a selectBox from materialize 
  
 * Maybe don't use anymore satis to build, but generate the html directly with this tool, we already have required data.
