@@ -9,9 +9,38 @@ var helperIsActive = function helperIsActive() {
 };
 UI.registerHelper('isActive', helperIsActive);
 
+// inform that it needs to re-generate file and ask satis to build
+var upBuildNeeded = function buildNeeded() {
+    var buildNeeded = BuildNeeded.findOne();
+
+    BuildNeeded.update({
+        _id: buildNeeded._id
+    }, {
+        needed: 1
+    });
+};
+
 Template.menu.onRendered(function tplMenuOnRendered() {
     $(document).ready(function tplMenuDocumentReady(){
         $('.navbar-fixed').pushpin({ top: $('.navbar-fixed').offset().top });
+    });
+});
+
+Template.action.onRendered(function tplActionOnCreated() {
+    $(document).ready(function(){
+        $('#buildSatis').pushpin({ offset: ($('.navbar-fixed').offset().top + 85) });
+    });
+});
+
+Meteor.startup(function() {
+    Tracker.autorun(function() {
+        var buildRunning = BuildRunning.findOne();
+
+        if (buildRunning
+            && buildRunning.error) {
+            Materialize.toast("An error happened on server, ask your admin to look at the logs or in the BuildRunning collections", 10000);
+            console.warn(buildRunning.error.stack);
+        }
     });
 });
 
@@ -26,6 +55,17 @@ Template.action.helpers({
         }
 
         return disabled;
+    },
+
+    'isNeeded': function tplMenuIsNeeded() {
+        var buildNeeded = BuildNeeded.findOne();
+
+        if (buildNeeded
+            && buildNeeded.needed) {
+            return true;
+        }
+
+        return false;
     }
 });
 
@@ -38,7 +78,7 @@ Template.action.events({
             return;
         }
 
-        Meteor.call('build');
+        Meteor.call('generate');
     }
 });
 
@@ -76,50 +116,50 @@ Template.menu.helpers({
 
 Template.infos.events({
     'blur #title-input': function tplInfosBlurFieldTitle(ev, tpl) {
-        var infos = Informations.findOne();
-        if (infos.title !== ev.currentTarget.value) {
-            Informations.update({_id: infos._id}, {$set: {title: ev.currentTarget.value}});
-
-            Meteor.call('generate');
+        var data = ev.currentTarget.value;
+        if (this.title === data) return;
+        if (!data.length) {
+            Materialize.toast("You must fill Title field", 5000);
+            return;
         }
+
+        Informations.update({_id: this._id}, {$set: {title: ev.currentTarget.value}});
+
+        Meteor.call('generate');
     },
 
     'blur #description-input': function tplInfosBlurFieldDescription(ev, tpl) {
-        var infos = Informations.findOne();
-        if (infos.description !== ev.currentTarget.value) {
-            Informations.update({_id: infos._id}, {$set: {description: ev.currentTarget.value}});
-
-            Meteor.call('generate');
+        var data = ev.currentTarget.value;
+        if (this.description === data) return;
+        if (!data.length) {
+            Materialize.toast("You must fill Description field", 5000);
+            return;
         }
+
+        Informations.update({_id: this._id}, {$set: {description: ev.currentTarget.value}});
+
+        Meteor.call('generate');
     },
 
     'blur #homepage-input': function tplInfosBlurFieldHomepage(ev, tpl) {
-        var infos = Informations.findOne();
-        if (infos.homepage !== ev.currentTarget.value) {
-            Informations.update({_id: infos._id}, {$set: {homepage: ev.currentTarget.value}});
-
-            Meteor.call('generate');
+        var data = ev.currentTarget.value;
+        if (this.homepage === data) return;
+        if (!data.length) {
+            Materialize.toast("You must fill Homepage field", 5000);
+            return;
         }
+
+        Informations.update({_id: this._id}, {$set: {homepage: ev.currentTarget.value}});
+
+        Meteor.call('generate');
     }
 });
 
 Template.infos.helpers({
-    title: function tplInfosTitle() {
+    infos: function tplInfosInfos() {
         var infos = Informations.findOne();
 
-        return infos ? infos.title : null;
-    },
-
-    description: function tplInfosDescription() {
-        var infos = Informations.findOne();
-
-        return infos ? infos.description : null;
-    },
-
-    homepage: function tplInfosHomepage() {
-        var infos = Informations.findOne();
-
-        return infos ? infos.homepage : null;
+        return infos;
     }
 });
 
@@ -153,6 +193,12 @@ Template.repositories.events({
             type: tpl.find('#addRepo .select-dropdown').value,
             url: tpl.find('input#addRepo-url-input').value
         };
+
+        if (!data.type.length
+            || !data.url.length) {
+            Materialize.toast("You must select a Type and fill Url field", 5000);
+            return;
+        }
 
         // save
         Repositories.insert(data);
@@ -189,18 +235,31 @@ Template.repositories_row.helpers({
 });
 
 Template.repositories_row.events({
-    'click button[name="editRepo"]': function tplRowRepositoriesClickEditRepo(ev, tpl) {
+    'blur input.editRepo, change select.editRepo, click button[name="editRepo"]': function tplRowRepositoriesClickEditRepo(ev, tpl) {
         var field = tpl.find('input#editRepo-url-' + this._id + '-input'),
             data = {
             type: tpl.find('#edit-' + this._id + ' .select-dropdown').value, // field generated by materialize... don't know how to deal with correctly to be able to use field var instead of #edit-_id ....
             url: field.value
-        };
+            };
+
+        // do nothing, if nothing change ;-)
+        if (data.type === this.type
+            && data.url === this.url) {
+            return;
+        }
+
+        // check
+        if (!data.type.length
+            || !data.url.length) {
+            Materialize.toast("You must select a Type and fill Url field", 5000);
+            return;
+        }
 
         // save
         Repositories.update({_id: this._id}, {$set: data});
 
         // generate file and ask satis to build
-        Meteor.call('generate');
+        upBuildNeeded();
     },
 
     'click button[name="removeRepo"]': function tplRowRepositoriesClickRemoveRepo(ev, tpl) {
@@ -223,6 +282,12 @@ Template.packages.events({
                 name: tpl.find('input#addPackage-name-input').value
             };
 
+        if (!data.version.length
+            || !data.name.length) {
+            Materialize.toast("You must fill Name and Version fields", 5000);
+            return;
+        }
+
         // save
         Packages.insert(data);
 
@@ -241,17 +306,30 @@ Template.packages.events({
 });
 
 Template.packages_row.events({
-    'click button[name="editPackage"]': function tplRowPackagesClickEditPackage(ev, tpl) {
+    'blur input.editPackage': function tplRowPackagesClickEditPackage(ev, tpl) {
         var data = {
-            version: tpl.find('input#editPackage-name-' + this._id + '-input').value,
-            name: tpl.find('input#editPackage-version-' + this._id + '-input').value
-        };
+            version: tpl.find('input#editPackage-version-' + this._id + '-input').value,
+            name: tpl.find('input#editPackage-name-' + this._id + '-input').value
+        },
+            buildNeeded = BuildNeeded.findOne();
+
+        // do nothing, if nothing change ;-)
+        if (data.version === this.version
+            && data.name === this.name) {
+            return;
+        }
+
+        // check
+        if (!data.version.length
+            || !data.name.length) {
+            Materialize.toast("You must fill Name and Version fields", 5000);
+            return;
+        }
 
         // save
         Packages.update({_id: this._id}, {$set: data});
 
-        // generate file and ask satis to build
-        Meteor.call('generate');
+        upBuildNeeded();
     },
 
     'click button[name="removePackage"]': function tplPackagesClickRemovePackage(ev, tpl) {

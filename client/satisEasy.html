@@ -7,11 +7,11 @@
 
     <div class="container">
         <div class="row">
-            <div class="col s1 m2 l4">
-                {{> action }}
-            </div>
             <div class="col s11 m10 l8 ">
                 {{> yield }}
+            </div>
+            <div class="col s1 m2 l4">
+                {{> action }}
             </div>
         </div>
     </div>
@@ -37,7 +37,7 @@
 </template>
 
 <template name="action">
-    <a class="btn-floating btn-large {{isRunning}}" id="buildSatis" title="Force build"><i class="mdi-action-track-changes"></i></a>
+    <a class="btn-floating btn-large {{isRunning}} {{#if isNeeded}}yellow darken{{/if}}" id="buildSatis" title="Force build"><i class="mdi-action-track-changes"></i></a>
 </template>
 
 <template name="settings">
@@ -47,6 +47,7 @@
 </template>
 
 <template name="infos">
+    {{#with infos}}
     <div class="row">
         <h3>Détails</h3>
         <div class="input-field col s6">
@@ -74,6 +75,7 @@
         </div>
         {{/each}}
     </div>
+    {{/with}}
 </template>
 
 <template name="archive">
@@ -144,7 +146,7 @@
 <template name="repositories_row">
     <div class="row" id="edit-{{_id}}">
         <div class="input-field col m2">
-            <select name="type" id="addRepo-type-input">
+            <select name="type" class="editRepo validate" id="editRepo-type-input">
                 <option value="vcs" {{isSelected "vcs"}}>vcs</option>
                 <option value="composer" {{isSelected "composer"}}>composer</option>
             </select>
@@ -156,7 +158,6 @@
         </div>
         <div class="col m4">
             <button type="button" class="btn waves-effect waves-light  red darken-1" title="remove" name="removeRepo"><i class="mdi-action-highlight-remove"></i></button>
-            <button type="button" class="btn waves-effect waves-light" title="edit" name="editRepo"><i class="mdi-content-send right"></i></button>
         </div>
     </div>
 </template>
@@ -196,7 +197,6 @@
         </div>
         <div class="col m4">
             <button type="button" class="btn waves-effect waves-light red darken-1" title="remove" name="removePackage"><i class="mdi-action-highlight-remove"></i></button>
-            <button type="button" class="btn waves-effect waves-light" title="edit" name="editPackage"><i class="mdi-content-send right"></i></button>
         </div>
     </div>
 </template>
