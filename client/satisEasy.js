@@ -38,7 +38,9 @@ Meteor.startup(function() {
 
         if (buildRunning
             && buildRunning.error) {
-            Materialize.toast("An error happened on server, ask your admin to look at the logs or in the BuildRunning collections", 10000);
+            // the toast is not a member of action template, so i don't know for instance how to bind an event from action template to the toast, so i use meteor methods which is not my prefered wish
+            Materialize.toast("An error happened on server, ask your admin to look at the logs or in the BuildRunning collections "
+                + ' <i onclick="javascript:Meteor.call(\'removeError\');" class="mdi-action-delete" style="cursor:pointer"></i>', 100000);
             console.warn(buildRunning.error.stack);
         }
     });
@@ -79,7 +81,8 @@ Template.action.events({
             return;
         }
 
-        Meteor.call('generate');
+        // ask for generate json and build satis
+        Meteor.call('generate', 1);
     }
 });
 
@@ -153,6 +156,32 @@ Template.infos.events({
         Informations.update({_id: this._id}, {$set: {homepage: ev.currentTarget.value}});
 
         Meteor.call('generate');
+    },
+
+    'blur .githubtoken-input': function tplInfosBlurFieldGithubtoken(ev, tpl) {
+        var data = ev.currentTarget.value;
+        if (this.config
+            && this.config['github-oauth'] === data) return;
+        if (!data.length) {
+            Materialize.toast("You must fill Homepage field", 5000);
+            return;
+        }
+
+        Informations.update({_id: this._id}, {$set: {homepage: ev.currentTarget.value}});
+
+        Meteor.call('generate');
+    },
+
+    'change #minimumstability-type-input': function(ev, tpl) {
+        var data = ev.currentTarget.value;
+        if (!_.contains(['dev', 'alpha', 'beta', 'RC', 'stable'], data)) {
+            Materialize.toast("You must select only available value", 5000);
+            return;
+        }
+
+        Informations.update({_id: this._id}, {$set: {"minimumStability": data}});
+
+        Meteor.call('generate');
     }
 });
 
@@ -161,6 +190,19 @@ Template.infos.helpers({
         var infos = Informations.findOne();
 
         return infos;
+    },
+
+    configoauth: function tplInfosConfigoauth() {
+        var infos = Informations.findOne();
+
+        if (infos
+            && infos.config
+            && infos.config['github-oauth']) {
+
+            return infos.config['github-oauth'];
+        }
+
+        return [];
     }
 });
 
@@ -171,12 +213,6 @@ Template.archive.helpers({
             toReturn = infos && infos.archive ? _.extend(basicInfos, infos.archive) : basicInfos;
 
         return toReturn;
-    },
-
-    isActive: function tplArchiveIsActive() {
-        if (arguments[0]) {
-            return 'active ';
-        }
     },
 
     isCheckedArchiveSkipDev: function tplArchiveIsChecked() {
@@ -219,6 +255,28 @@ Template.archive.events({
         if (!_.contains(['tar', 'zip'], data.format)) {
             Materialize.toast("Format must be tar or zip, you filled " + data.format, 5000);
             delete data.format;
+        }
+
+        // a new build is needed ?
+        var currentArchive = Informations.findOne();
+        if (!currentArchive
+            || !currentArchive.archive) {
+            upBuildNeeded();
+        } else {
+            var newKeys = _.keys(data),
+                curKeys = _.keys(currentArchive.archive);
+
+            _.each(newKeys, function(key) {
+                if (!_.has(currentArchive.archive, key)) {
+                    upBuildNeeded();
+                    return;
+                }
+
+                if (data[key] !== currentArchive.archive[key]) {
+                    upBuildNeeded();
+                    return;
+                }
+            });
         }
 
         // save
@@ -396,3 +454,4 @@ Template.packages_row.events({
         // don't generate file on remove. User must force build with required button. It's to prevent remove per error
     }
 });
+

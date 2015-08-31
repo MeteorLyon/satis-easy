@@ -15,16 +15,15 @@ if (!saveDir
 }
 
 Meteor.startup(function serverOnStartup() {
-    console.log("startup");
     // init build collection
     if (!BuildRunning.find().count()) {
         BuildRunning.insert({running: 0});
     }
-console.log(BuildRunning.find().count());
+
     if (!BuildNeeded.find().count()) {
         BuildNeeded.insert({needed: 0});
     }
-console.log(BuildNeeded.find().count());
+
     (function initDb() {
         // create default satis file
         if (!fs.existsSync(Meteor.settings.satisJson)) {
@@ -117,7 +116,7 @@ console.log(BuildNeeded.find().count());
 });
 
 Meteor.methods({
-    "generate": function methodsGenerate() {
+    "generate": function methodsGenerate(build) {
         SSR.compileTemplate('satisJson', Assets.getText('satis.json'));
 
         var json = SSR.render('satisJson', {
@@ -138,6 +137,12 @@ Meteor.methods({
                 var hp = Informations.findOne() ? Informations.findOne().homepage : Meteor.settings.public.informations.homepage;
 
                 return hp;
+            },
+
+            minimumStability: function ssrMinimumStability() {
+              var ms = Informations.findOne() ? Informations.findOne().minimumStability : Meteor.settings.public.informations.minimumStability;
+
+              return ms;
             },
 
             configGithubOauth: function ssrConfigGithubOauth() {
@@ -225,7 +230,7 @@ Meteor.methods({
 
         // launch build only if no job running
         var job = BuildRunning.findOne();
-        if (job.running === 0) {
+        if (job && job.running === 0 && build) {
             Meteor.call('build');
         }
     },
